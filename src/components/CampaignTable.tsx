@@ -5,8 +5,11 @@ import { RootState } from "../app/store";
 import CampaignFilter from "./CampaignFilter";
 import CampaignChannelFilter from "./CampaignChannelFilter";
 import CampaignDateFilter from "./CampaignDateFilter";
+import { useDispatch } from "react-redux";
+import { resetFilters } from "../features/campaignSlice";
 
 const CampaignList: React.FC = () => {
+  const dispatch = useDispatch();
   const { data, error, isLoading } = useGetCampaignsQuery(); // Fetch campaigns using RTK Query
   const filters = useSelector((state: RootState) => state.campaign); // Get filters from Redux store
 
@@ -28,7 +31,7 @@ const CampaignList: React.FC = () => {
     setSortOrder((prev) => (prev === "asc" ? "desc" : "asc")); // Toggle sorting order
   };
 
-  // Filter campaigns based on the budget range set in filters
+  // Filter campaigns based on the budget range
   const filteredData = (data || []).filter((campaign) => {
     let matchesBudget = true;
     let matchesChannels = true;
@@ -74,43 +77,64 @@ const CampaignList: React.FC = () => {
     if (a.plannedBudget > b.plannedBudget) return sortOrder === "asc" ? 1 : -1;
     return 0;
   });
+  // Handler for reset filters
+  const handleResetFilters = () => {
+    dispatch(resetFilters()); // Dispatch resetFilters action to clear filters
+  };
 
   return (
-    <div>
-      <h1>Campaigns</h1>
-      <div style={{ marginBottom: "10px" }}>
-        <span>Sorted by Planned Budget</span>
-        <span
-          style={{ cursor: "pointer", marginLeft: "10px" }}
-          onClick={handleSort} // Toggle sort order on click
-        >
-          {sortOrder === "asc" ? "↑" : "↓"}
-        </span>
+    <div className="p-6 bg-gray-900 text-yellow-100 min-h-screen">
+      <h1 className="text-4xl font-bold mb-6 text-center">Campaigns</h1>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+        <CampaignFilter /> {/* Include the CampaignFilter component */}
+        <CampaignChannelFilter /> {/* Filter component for channels */}
+        <CampaignDateFilter /> {/* Filter component for date */}
       </div>
-      <CampaignFilter /> {/* Include the CampaignFilter component */}
-      <CampaignChannelFilter /> {/* Filter component for channels */}
-      <CampaignDateFilter />
-      {/* Filter component for date */}
-      <table>
+      <div className="flex justify-between items-center mb-6">
+        <div className="text-center w-full">
+          <span className="text-lg">Sorted by Planned Budget</span>
+          <span
+            className="cursor-pointer ml-2 text-xl"
+            onClick={handleSort} // Toggle sort order on click
+          >
+            {sortOrder === "asc" ? "↑" : "↓"}
+          </span>
+        </div>
+      </div>
+      <button
+        onClick={handleResetFilters}
+        className="mt-4 mb-4 px-6 py-2 bg-purple-400 text-white rounded-lg hover:bg-purple-700 transition mx-auto block"
+      >
+        Reset Filters
+      </button>
+      {filteredData.length === 0 && (
+        <div className="text-center text-lg text-yellow-100 mt-6">
+          No results found for your search.
+        </div>
+      )}
+
+      <table className="min-w-full table-auto border-collapse border border-gray-600">
         <thead>
-          <tr>
-            <th>Name</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-            <th>Planned Budget</th>
-            <th>Spent Budget</th>
-            <th>Channels</th>
+          <tr className="bg-gray-800 text-yellow-100">
+            <th className="py-3 px-4 border-b">Name</th>
+            <th className="py-3 px-4 border-b">Start Date</th>
+            <th className="py-3 px-4 border-b">End Date</th>
+            <th className="py-3 px-4 border-b">Planned Budget</th>
+            <th className="py-3 px-4 border-b">Spent Budget</th>
+            <th className="py-3 px-4 border-b">Channels</th>
           </tr>
         </thead>
         <tbody>
           {sortedData.map((campaign) => (
             <tr key={campaign.id}>
-              <td>{campaign.name}</td>
-              <td>{campaign.startDate}</td>
-              <td>{campaign.endDate}</td>
-              <td>{campaign.plannedBudget}</td>
-              <td>{campaign.spentBudget}</td>
-              <td>{campaign.channels.join(", ")}</td>
+              <td className="py-3 px-4 border-b">{campaign.name}</td>
+              <td className="py-3 px-4 border-b">{campaign.startDate}</td>
+              <td className="py-3 px-4 border-b">{campaign.endDate}</td>
+              <td className="py-3 px-4 border-b">{campaign.plannedBudget}</td>
+              <td className="py-3 px-4 border-b">{campaign.spentBudget}</td>
+              <td className="py-3 px-4 border-b">
+                {campaign.channels.join(", ")}
+              </td>
             </tr>
           ))}
         </tbody>

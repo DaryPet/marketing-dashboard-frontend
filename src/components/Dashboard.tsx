@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "../app/store";
 import LogoutButton from "./Logout";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { ErrorMessage, Field, Formik, FormikHelpers, Form } from "formik";
+import * as Yup from "yup";
 
 interface Campaign {
   id?: number;
@@ -38,8 +42,15 @@ const Dashboard: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const formRef = useRef<HTMLFormElement>(null);
+  // Fetch campaigns from API when accessToken is available
   useEffect(() => {
     const fetchCampaigns = async () => {
+      if (!accessToken) {
+        setError("You are not logged in.");
+        return;
+      }
+
       try {
         const response = await fetch("http://localhost:8000/api/campaigns/", {
           headers: {
@@ -59,43 +70,67 @@ const Dashboard: React.FC = () => {
     };
 
     fetchCampaigns();
-  }, [accessToken]);
+  }, [accessToken]); // This effect depends on accessToken
 
+  // Validation Schema
+  const validationSchema = Yup.object({
+    name: Yup.string().required("Campaign name is required!"),
+    start_date: Yup.date()
+      .required("Start date is required!")
+      .max(
+        Yup.ref("end_date"),
+        "Start date cannot be later than the end date!"
+      ),
+    end_date: Yup.date().required("End date is required!"),
+    total_budget: Yup.number()
+      .positive("Total budget must be a positive number!")
+      .required("Total budget is required!"),
+    spent_budget: Yup.number()
+      .min(0, "Spent budget cannot be negative!")
+      .required("Spent budget is required!"),
+  });
+
+  // Handle form input changes
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
+
     if (name === "channel") {
-      const selectedChannel = channels.find(
-        (channel) => channel.name === value
+      const selectedChannels = Array.from(
+        (e.target as HTMLSelectElement).selectedOptions,
+        (option: HTMLOptionElement) => option.value
       );
-      // Когда выбирается канал, сохраняем и его ID
+
+      const selectedChannelsData = selectedChannels
+        .map((channelName) => {
+          return channels.find((channel) => channel.name === channelName);
+        })
+        .filter(Boolean) as Channel[];
+
       setFormData((prev) => ({
         ...prev,
-        channels: selectedChannel
-          ? [
-              {
-                name: selectedChannel.name,
-                type: selectedChannel.type,
-              },
-            ]
-          : [],
+        channels: Array.from(
+          new Set([...prev.channels, ...selectedChannelsData])
+        ),
       }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
+  // Handle form submission for creating/updating campaign
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const handleSubmit = async (
+    values: Campaign,
+    { resetForm }: FormikHelpers<Campaign>
+  ) => {
     const dataToSend = {
-      name: formData.name,
-      start_date: formData.start_date,
-      end_date: formData.end_date,
-      total_budget: formData.total_budget,
-      spent_budget: formData.spent_budget,
-      channels: formData.channels,
+      name: values.name,
+      start_date: values.start_date,
+      end_date: values.end_date,
+      total_budget: values.total_budget,
+      spent_budget: values.spent_budget,
+      channels: values.channels,
     };
 
     try {
@@ -118,25 +153,28 @@ const Dashboard: React.FC = () => {
       }
 
       const updatedCampaign = await response.json();
-      setCampaigns((prev) =>
+      setCampaigns(
+        (prev) =>
+          isEditing
+            ? [
+                updatedCampaign,
+                ...prev.filter((c) => c.id !== updatedCampaign.id), // Replace updated campaign and keep others
+              ]
+            : [updatedCampaign, ...prev] // New campaign is added at the top
+      );
+      toast.success(
         isEditing
-          ? prev.map((c) => (c.id === updatedCampaign.id ? updatedCampaign : c))
-          : [...prev, updatedCampaign]
+          ? "Campaign updated successfully!"
+          : "Campaign created successfully!"
       );
 
-      setFormData({
-        name: "",
-        start_date: "",
-        end_date: "",
-        total_budget: "",
-        spent_budget: "",
-        channels: [],
-      });
+      resetForm();
       setIsEditing(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     }
   };
+  // Handle deleting a campaign
 
   const handleDelete = async (id: number) => {
     try {
@@ -155,23 +193,21 @@ const Dashboard: React.FC = () => {
       }
 
       setCampaigns((prev) => prev.filter((c) => c.id !== id));
+      toast.success("Campaign deleted successfully!");
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     }
   };
-
+  // Set form data for editing a campaign
   const handleEdit = (campaign: Campaign) => {
-    setFormData({
-      id: campaign.id || undefined,
-      name: campaign.name || "",
-      start_date: campaign.start_date || "",
-      end_date: campaign.end_date || "",
-      total_budget: campaign.total_budget || "",
-      spent_budget: campaign.spent_budget || "",
-      channels: campaign.channels || [],
-    });
+    setFormData(campaign);
     setIsEditing(true);
+    if (formRef.current) {
+      formRef.current.scrollIntoView({ behavior: "smooth" });
+    }
   };
+
+  // Reset form data and cancel editing
   const handleCancel = () => {
     setFormData({
       name: "",
@@ -184,121 +220,197 @@ const Dashboard: React.FC = () => {
     setIsEditing(false);
   };
 
+  // Remove selected channel from the form
+  const handleRemoveChannel = (channelToRemove: Channel) => {
+    setFormData((prev) => ({
+      ...prev,
+      channels: prev.channels.filter(
+        (channel) => channel.name !== channelToRemove.name
+      ),
+    }));
+  };
+
   return (
-    <div>
-      <h1>Dashboard</h1>
-      <LogoutButton />
-      {error && <p className="error">{error}</p>}
+    <div className="p-6 bg-gray-900 text-yellow-100 min-h-screen">
+      <h1 className="text-4xl font-bold mb-6 text-center">Dashboard</h1>
+      <div className="flex justify-center mb-6">
+        <LogoutButton />
+      </div>
+      {error && <p className="text-red-500">{error}</p>}
 
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label>Name:</label>
-          <input
-            type="text"
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div>
-          <label>Start Date:</label>
-          <input
-            type="date"
-            name="start_date"
-            value={formData.start_date}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div>
-          <label>End Date:</label>
-          <input
-            type="date"
-            name="end_date"
-            value={formData.end_date}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div>
-          <label>Total Budget:</label>
-          <input
-            type="number"
-            name="total_budget"
-            value={formData.total_budget}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div>
-          <label>Spent Budget:</label>
-          <input
-            type="number"
-            name="spent_budget"
-            value={formData.spent_budget}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div>
-          <label>Channel:</label>
-          <select
-            name="channel"
-            value={
-              formData.channels.length > 0 ? formData.channels[0].name : ""
-            }
-            onChange={handleChange}
-            required
-          >
-            <option value="">Select Channel</option>
-            {channels.map((channel) => (
-              <option key={channel.name} value={channel.name}>
-                {channel.name} ({channel.type})
-              </option>
-            ))}
-          </select>
-        </div>
-        <button type="submit">
-          {isEditing ? "Update Campaign" : "Create Campaign"}
-        </button>
+      <Formik
+        initialValues={formData}
+        validationSchema={validationSchema}
+        onSubmit={handleSubmit}
+        enableReinitialize
+      >
+        {({ values }) => (
+          <Form className="space-y-4 w-1/2 mx-auto" ref={formRef}>
+            <div>
+              <label className="text-xl">Name:</label>
+              <Field
+                type="text"
+                name="name"
+                className="w-full p-3 bg-gray-700 text-yellow-100 border outline-none rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+              />
+              <ErrorMessage
+                name="name"
+                component="div"
+                className="text-red-500"
+              />
+            </div>
+            <div>
+              <label className="text-xl">Start Date:</label>
+              <Field
+                type="date"
+                name="start_date"
+                className="w-full p-3 bg-gray-700 text-yellow-100 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+              />
+              <ErrorMessage
+                name="start_date"
+                component="div"
+                className="text-red-500"
+              />
+            </div>
+            <div>
+              <label className="text-xl">End Date:</label>
+              <Field
+                type="date"
+                name="end_date"
+                className="w-full p-3 bg-gray-700 text-yellow-100 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+              />
+              <ErrorMessage
+                name="end_date"
+                component="div"
+                className="text-red-500"
+              />
+            </div>
+            <div>
+              <label className="text-xl">Total Budget:</label>
+              <Field
+                type="number"
+                name="total_budget"
+                className="w-full p-3 bg-gray-700 text-yellow-100 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+              />
+              <ErrorMessage
+                name="end_date"
+                component="div"
+                className="text-red-500"
+              />
+            </div>
+            <div>
+              <label className="text-xl">Spent Budget:</label>
+              <Field
+                type="number"
+                name="spent_budget"
+                className="w-full p-3 bg-gray-700 text-yellow-100 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+              />
+              <ErrorMessage
+                name="end_date"
+                component="div"
+                className="text-red-500"
+              />
+            </div>
+            <div>
+              <label className="text-xl">Channel(s):</label>
+              <select
+                name="channel"
+                multiple
+                value={formData.channels.map((channel) => channel.name)}
+                onChange={handleChange}
+                required
+                className="w-full p-3 bg-gray-700 text-yellow-100 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+              >
+                {/* <option value="">Select Channel(s)</option> */}
+                {channels.map((channel) => (
+                  <option key={channel.name} value={channel.name}>
+                    {channel.name}
+                  </option>
+                ))}
+              </select>
+              <ErrorMessage
+                name="end_date"
+                component="div"
+                className="text-red-500"
+              />
+            </div>
+            <div>
+              <h3 className="text-lg">Selected Channels:</h3>
+              {values.channels.map((channel, index) => (
+                <div key={index}>
+                  <span>{channel.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveChannel(channel)}
+                    className="ml-2 bg-purple-400 text-white rounded p-1  hover:bg-purple-700 transition"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              type="submit"
+              className="w-full py-3 mt-4 bg-purple-400 text-white rounded-lg hover:bg-purple-700 transition"
+            >
+              {isEditing ? "Update Campaign" : "Create Campaign"}
+            </button>
 
-        <button type="button" onClick={handleCancel}>
-          Cancel
-        </button>
-      </form>
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="w-full py-3 mt-4 bg-gray-500 text-white rounded-lg hover:bg-gray-700 transition"
+            >
+              Cancel
+            </button>
+          </Form>
+        )}
+      </Formik>
 
-      <h2>Your Campaigns</h2>
-      <table>
+      <h2 className="text-2xl font-semibold mt-6 text-center">
+        Your Campaigns
+      </h2>
+      <table className="w-full table-auto mt-4 bg-gray-800 text-yellow-100">
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-            <th>Total Budget</th>
-            <th>Spent Budget</th>
-            <th>Channels</th>
-            <th>Actions</th>
+            <th className="py-3 px-4 border-b">Name</th>
+            <th className="py-3 px-4 border-b">Start Date</th>
+            <th className="py-3 px-4 border-b">End Date</th>
+            <th className="py-3 px-4 border-b">Total Budget</th>
+            <th className="py-3 px-4 border-b">Spent Budget</th>
+            <th className="py-3 px-4 border-b">Channels</th>
+            <th className="py-3 px-4 border-b">Actions</th>
           </tr>
         </thead>
         <tbody>
           {campaigns.map((campaign) => (
             <tr key={campaign.id}>
-              <td>{campaign.name}</td>
-              <td>{campaign.start_date}</td>
-              <td>{campaign.end_date}</td>
-              <td>{campaign.total_budget}</td>
-              <td>{campaign.spent_budget}</td>
-              <td>
-                {campaign.channels.map((channel) => (
-                  <span key={`${campaign.id}-${channel.name}-${channel.type}`}>
-                    {channel.name}
-                  </span>
+              <td className="py-3 px-4 border-b">{campaign.name}</td>
+              <td className="py-3 px-4 border-b">{campaign.start_date}</td>
+              <td className="py-3 px-4 border-b">{campaign.end_date}</td>
+              <td className="py-3 px-4 border-b">{campaign.total_budget}</td>
+              <td className="py-3 px-4 border-b">{campaign.spent_budget}</td>
+              <td className="py-3 px-4 border-b">
+                {campaign.channels.map((channel, index) => (
+                  <>
+                    <span key={`${campaign.id}-${channel.name}-${index}`}>
+                      {channel.name}
+                    </span>
+                    {index < campaign.channels.length - 1 && ", "}
+                  </>
                 ))}
               </td>
-              <td>
-                <button onClick={() => handleEdit(campaign)}>Edit</button>
-                <button onClick={() => handleDelete(campaign.id!)}>
+              <td className="py-3 px-4 border-b">
+                <button
+                  onClick={() => handleEdit(campaign)}
+                  className="bg-yellow-500 text-white py-1 px-3 rounded-lg hover:bg-yellow-700"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDelete(campaign.id!)}
+                  className="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-700 ml-2"
+                >
                   Delete
                 </button>
               </td>

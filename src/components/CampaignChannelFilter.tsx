@@ -31,28 +31,20 @@ const CampaignChannelFilter: React.FC = () => {
   };
 
   return (
-    <div style={{ marginBottom: "20px" }}>
-      <label
-        style={{
-          cursor: "pointer",
-          fontWeight: "bold",
-          color: "#007bff",
-          display: "inline-block",
-          marginBottom: "10px",
-        }}
-      >
+    <div className="bg-gray-800 p-6 rounded-lg shadow-lg mb-6">
+      <label className="block text-xl font-semibold text-light-yellow mb-4">
         Filter by Channel
       </label>
-      <div style={{ marginTop: "10px" }}>
+      <div className="space-y-3">
         {availableChannels.map((channel) => (
-          <div key={channel}>
+          <div key={channel} className="flex items-center">
             <input
               type="checkbox"
               id={channel}
               value={channel}
               checked={filters.channels.includes(channel)}
               onChange={handleChannelFilterChange}
-              style={{ marginRight: "5px" }}
+              className="mr-2 h-4 w-4 text-yellow-100 border-gray-600 rounded focus:ring-2 focus:ring-light-yellow"
             />
             <label htmlFor={channel}>{channel}</label>
           </div>
