@@ -18,40 +18,29 @@ const CampaignDateFilter: React.FC = () => {
   };
 
   return (
-    <div style={{ marginBottom: "20px" }}>
-      <label
-        style={{
-          fontWeight: "bold",
-          display: "inline-block",
-          marginRight: "10px",
-        }}
-      >
-        Filter by Date Range:
-      </label>
-      <div>
-        <label style={{ marginRight: "10px" }}>Start Date:</label>
-        <input
-          type="date"
-          value={filters.startDate || ""}
-          onChange={handleStartDateChange}
-          style={{
-            padding: "5px",
-            marginRight: "15px",
-            borderRadius: "4px",
-            border: "1px solid #ccc",
-          }}
-        />
-        <label style={{ marginRight: "10px" }}>End Date:</label>
-        <input
-          type="date"
-          value={filters.endDate || ""}
-          onChange={handleEndDateChange}
-          style={{
-            padding: "5px",
-            borderRadius: "4px",
-            border: "1px solid #ccc",
-          }}
-        />
+    <div className="bg-gray-800 p-6 rounded-lg shadow-lg mb-6">
+      <h2 className="text-xl font-semibold text-yellow-100 mb-4">
+        Filter by Date Range
+      </h2>
+      <div className="flex flex-col space-y-4">
+        <div className="flex items-center">
+          <label className="text-yellow-100 mr-4">Start Date:</label>
+          <input
+            type="date"
+            value={filters.startDate || ""}
+            onChange={handleStartDateChange}
+            className="px-4 py-2 bg-gray-700 text-yellow-100 border border-gray-600 rounded-lg focus:outline-none focus:ring-2  focus:ring-purple-400"
+          />
+        </div>
+        <div className="flex items-center">
+          <label className="text-yellow-100 mr-4">End Date:</label>
+          <input
+            type="date"
+            value={filters.endDate || ""}
+            onChange={handleEndDateChange}
+            className="px-4 py-2 bg-gray-700 text-yellow-100 border border-gray-600 rounded-lg focus:outline-none focus:ring-2  focus:ring-purple-400"
+          />
+        </div>
       </div>
     </div>
   );
