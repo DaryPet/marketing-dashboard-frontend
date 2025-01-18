@@ -28,6 +28,7 @@ const Login: React.FC = () => {
     try {
       // Send a POST request to the backend API with form values
       const response = await fetch("http://localhost:8000/api/token/", {
+     
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -138,6 +138,7 @@ const Dashboard: React.FC = () => {
       const url = isEditing
         ? `http://localhost:8000/api/campaigns/${formData.id}/`
         : "http://localhost:8000/api/campaigns/";
+
       const method = isEditing ? "PUT" : "POST";
 
       const response = await fetch(url, {
@@ -190,6 +191,7 @@ const Dashboard: React.FC = () => {
     try {
       const response = await fetch(
         `http://localhost:8000/api/campaigns/${id}/`,
+
         {
           method: "DELETE",
           headers: {
