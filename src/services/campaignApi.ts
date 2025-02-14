@@ -27,6 +27,7 @@ export interface CampaignApiResponse {
 export const campaignApi = createApi({
   reducerPath: "campaignApi", // Unique key for the API in the Redux store
   baseQuery: fetchBaseQuery({ baseUrl: "http://localhost:8000/api/" }), // Base URL for the backend API
+
   tagTypes: ["Campaign"], // Tags for cache invalidation
   endpoints: (builder) => ({
     // Fetch all campaigns

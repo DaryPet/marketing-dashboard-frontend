@@ -4,7 +4,8 @@ import { setTokens } from "./authSlice";
 export const login =
   (username: string, password: string) => async (dispatch: Dispatch) => {
     try {
-      const response = await fetch("http://localhost:8000/api/token/", {
+      // const response = await fetch("http://localhost:8000/api/token/", {
+      const response = await fetch("http://localhost:8000/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -14,9 +15,9 @@ export const login =
 
       if (response.ok) {
         const data = await response.json();
-       
+
         dispatch(setTokens({ access: data.access, refresh: data.refresh }));
-       
+
         localStorage.setItem("accessToken", data.access);
         localStorage.setItem("refreshToken", data.refresh);
       } else {
